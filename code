@@ -1,0 +1,171 @@
+import matplotlib
+matplotlib.use("TkAgg")  
+import yfinance as yf
+import matplotlib.pyplot as plt
+from datetime import datetime
+import matplotlib.dates as mdates
+
+sp = yf.Ticker("^GSPC")
+qqq = yf.Ticker("QQQ")
+
+
+sp_prices = []
+qqq_prices = []
+times = []
+
+sp_base = None
+qqq_base = None
+
+
+
+def get_drop(ticker, days):
+    data = ticker.history(period=f"{days}d")["Close"]
+
+    current = data.iloc[-1]
+    high = data.max()
+
+    drop_pct = (current - high) / high * 100
+
+    return drop_pct
+
+
+#GUI:
+
+plt.ion()
+
+fig, ax = plt.subplots(figsize=(12, 7))
+
+plt.show()
+
+
+
+
+while True:
+
+    #get prices
+
+    sp_price = sp.history(period="1d")["Close"].iloc[-1]
+    qqq_price = qqq.history(period="1d")["Close"].iloc[-1]
+
+
+
+    if sp_base is None:
+        sp_base = sp_price
+        qqq_base = qqq_price
+
+    #Make %
+
+    sp_norm = (sp_price / sp_base) * 100
+    qqq_norm = (qqq_price / qqq_base) * 100
+
+
+
+    sp_prices.append(sp_norm)
+    qqq_prices.append(qqq_norm)
+    times.append(datetime.now())
+
+    # keep only last 100 points
+    if len(times) > 100:
+        sp_prices.pop(0)
+        qqq_prices.pop(0)
+        times.pop(0)
+
+
+
+    sp_7 = get_drop(sp, 7)
+    sp_30 = get_drop(sp, 30)
+
+    qqq_7 = get_drop(qqq, 7)
+    qqq_30 = get_drop(qqq, 30)
+
+
+
+    ax.clear()
+
+    #graph lines
+
+    ax.plot(
+        times, sp_prices, label="S&P 500 (^GSPC)", color="green", linewidth=2)
+
+    ax.plot(
+        times, qqq_prices, label="QQQ", color="blue", linewidth=2)
+
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+
+    #titles
+
+    ax.set_title(
+        "S&P 500 + QQQ Tracker", fontsize=16)
+
+    ax.set_xlabel("Time (updates)")
+    ax.set_ylabel("Difference in % (Start = 100)")
+
+    ax.grid(True)
+
+    ax.legend()
+
+    #baseline
+    ax.axhline(
+        100, color="gray", linestyle="--", alpha=0.7)
+
+    #info text
+
+    info_text = (
+        f"S&P 7-Day Change:  {sp_7:.2f}%\n"
+        f"S&P 30-Day Change: {sp_30:.2f}%\n\n"
+        f"QQQ 7-Day Change:  {qqq_7:.2f}%\n"
+        f"QQQ 30-Day Change: {qqq_30:.2f}%"
+    )
+
+    ax.text(
+        0.02,
+        0.98,
+        info_text,
+        transform=ax.transAxes,
+        fontsize=11,
+        verticalalignment='top',
+        bbox=dict(
+            facecolor='black',
+            alpha=0.75,
+            edgecolor='white'
+        ),
+        color='white'
+    )
+
+
+
+    alerts = []
+
+    if sp_7 <= -5:
+        alerts.append("🚨 S&P 7D DROP > 5%")
+
+    if sp_30 <= -10:
+        alerts.append("🚨 S&P 30D DROP > 10%")
+
+    if qqq_7 <= -5:
+        alerts.append("🚨 QQQ 7D DROP > 5%")
+
+    if qqq_30 <= -10:
+        alerts.append("🚨 QQQ 30D DROP > 10%")
+
+    if alerts:
+
+        alert_text = "\n".join(alerts)
+
+        ax.text(
+            0.65,
+            0.98,
+            alert_text,
+            transform=ax.transAxes,
+            fontsize=11,
+            verticalalignment='top',
+            bbox=dict(
+                facecolor='red',
+                alpha=0.7
+            ),
+            color='white'
+        )
+
+    #refresh:
+
+    plt.pause(30)
